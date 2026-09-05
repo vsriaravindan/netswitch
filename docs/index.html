@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetSwitch — Zero-Permission Network Mode Toggle</title>
+<meta name="description" content="One-tap Android QS tile + home-screen widget that flips SIM network mode on Realme ColorOS devices. Zero permissions declared. Requires Shizuku.">
+<style>
+  :root {
+    --bg: #fafafa;
+    --ink: #000;
+    --paper: #ffffff;
+    --accent: #d60000;
+    --line: #000;
+    --line-soft: #cccccc;
+    --text: #000;
+    --text-dim: #444;
+    --text-muted: #777;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    overflow-x: hidden;
+  }
+
+  /* Hard-edged brutalist lines */
+  hr { border: 0; border-top: 2px solid var(--line); margin: 0; }
+
+  /* Header — like an Android system status bar */
+  .status-bar {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 8px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .status-bar .right {
+    display: flex;
+    gap: 16px;
+  }
+
+  /* Hero */
+  header {
+    padding: 80px 24px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  .pre-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: clamp(2.5rem, 7vw, 5.5rem);
+    font-weight: 900;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    margin-bottom: 32px;
+  }
+  h1 .strike {
+    text-decoration: line-through;
+    text-decoration-thickness: 4px;
+    color: var(--text-dim);
+  }
+  h1 .accent {
+    background: var(--accent);
+    color: var(--paper);
+    padding: 0 12px;
+  }
+  .lede {
+    font-size: 1.25rem;
+    color: var(--text-dim);
+    max-width: 700px;
+    margin-bottom: 40px;
+  }
+  .cta-row {
+    display: flex;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 18px 32px;
+    border: 2px solid var(--line);
+    background: var(--paper);
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.1s ease;
+    font-size: 0.95rem;
+  }
+  .cta-primary {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .cta-primary:hover {
+    background: var(--accent);
+    color: var(--paper);
+    border-color: var(--accent);
+  }
+  .cta-secondary:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  /* Sections — hard dividers, no padding tricks */
+  section {
+    padding: 0;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .section-pad {
+    padding: 60px 24px;
+  }
+  h2 {
+    font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    margin-bottom: 24px;
+    line-height: 1.05;
+  }
+  .section-num {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-right: 16px;
+    border: 2px solid var(--line);
+    padding: 2px 10px;
+  }
+
+  /* Permission blocks — like Android settings */
+  .permission-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0;
+    border: 2px solid var(--line);
+    margin-top: 32px;
+  }
+  .perm-block {
+    padding: 24px;
+    border-right: 2px solid var(--line);
+    border-bottom: 2px solid var(--line);
+    background: var(--paper);
+  }
+  .perm-block:last-child {
+    border-right: 0;
+  }
+  .perm-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .perm-state {
+    font-size: 1.5rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+  .perm-state.denied {
+    color: var(--accent);
+  }
+  .perm-state.denied::before {
+    content: '✕ ';
+  }
+  .perm-state.granted {
+    color: #0a8a00;
+  }
+  .perm-state.granted::before {
+    content: '✓ ';
+  }
+
+  /* Problem → Solution */
+  .ps-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border: 2px solid var(--line);
+    margin-top: 32px;
+  }
+  .ps-cell {
+    padding: 32px;
+    border-right: 2px solid var(--line);
+  }
+  .ps-cell:last-child {
+    border-right: 0;
+  }
+  .ps-label {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 4px 10px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .ps-cell.solution .ps-label {
+    background: var(--accent);
+  }
+  .ps-cell h3 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+  }
+  .ps-cell p {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .ps-cell code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    background: var(--bg);
+    padding: 2px 6px;
+    border: 1px solid var(--line-soft);
+  }
+
+  /* Workflow steps */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0;
+    border: 2px solid var(--line);
+    margin-top: 32px;
+  }
+  .step {
+    padding: 24px;
+    background: var(--paper);
+    border-right: 2px solid var(--line);
+  }
+  .step:last-child {
+    border-right: 0;
+  }
+  .step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+  .step-num.red { color: var(--accent); }
+  .step-num.green { color: #0a8a00; }
+  .step h4 {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+  }
+  .step p {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+
+  /* Stack */
+  .stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    margin-top: 24px;
+  }
+  .stack-pill {
+    padding: 8px 14px;
+    border: 2px solid var(--line);
+    background: var(--paper);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    margin-right: -2px;
+    margin-bottom: -2px;
+  }
+
+  /* Footer */
+  footer {
+    background: var(--ink);
+    color: var(--paper);
+    margin-top: 80px;
+    padding: 60px 24px 40px;
+  }
+  footer .credit {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 28px;
+    border: 2px solid var(--paper);
+    color: var(--paper);
+    text-decoration: none;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.1s ease;
+    font-size: 0.95rem;
+  }
+  footer .credit:hover {
+    background: var(--paper);
+    color: var(--ink);
+  }
+  footer .credit-arrow {
+    transition: transform 0.1s ease;
+  }
+  footer .credit:hover .credit-arrow {
+    transform: translateX(4px);
+  }
+  footer .copy {
+    margin-top: 28px;
+    color: #aaa;
+    font-size: 0.8rem;
+  }
+  .footer-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  @media (max-width: 768px) {
+    .ps-grid { grid-template-columns: 1fr; }
+    .ps-cell { border-right: 0; border-bottom: 2px solid var(--line); }
+    .ps-cell:last-child { border-bottom: 0; }
+    .perm-block, .step { border-right: 0; border-bottom: 2px solid var(--line); }
+  }
+  @media (max-width: 480px) {
+    header { padding: 60px 20px; }
+    .section-pad { padding: 40px 20px; }
+    .cta { flex: 1; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>NetSwitch v1.0</span>
+  <span class="right">
+    <span>ColorOS 13</span>
+    <span>Realme GT Neo 3</span>
+    <span>0 perms</span>
+  </span>
+</div>
+
+<header>
+  <div class="pre-label">[ ANDROID UTILITY · KOTLIN · TILESERVICE ]</div>
+  <h1>
+    <span class="strike">permissions</span>
+    <br>
+    <span class="accent">zero</span>
+    of them.
+  </h1>
+  <p class="lede">
+    A one-tap QS tile and home-screen widget that flips your SIM&rsquo;s
+    network mode on Realme ColorOS devices — without ever asking for a
+    single Android permission.
+  </p>
+  <div class="cta-row">
+    <a href="https://github.com/vsriaravindan/netswitch/releases/download/v1.0/netswitch.apk" class="cta cta-primary">
+      Download APK · v1.0
+    </a>
+    <a href="https://github.com/vsriaravindan/netswitch" class="cta cta-secondary">
+      View Repo
+    </a>
+  </div>
+</header>
+
+<section>
+  <div class="section-pad">
+    <h2><span class="section-num">01</span>The Permission Block</h2>
+    <p style="color: var(--text-dim); max-width: 700px;">
+      On Realme GT Neo 3 (ColorOS 13), every standard Android permission
+      grant route is closed. Manifest declared permissions: zero.
+    </p>
+    <div class="permission-grid">
+      <div class="perm-block">
+        <div class="perm-name">pm grant</div>
+        <div class="perm-state denied">DENIED</div>
+      </div>
+      <div class="perm-block">
+        <div class="perm-name">appops set</div>
+        <div class="perm-state denied">DENIED</div>
+      </div>
+      <div class="perm-block">
+        <div class="perm-name">settings put</div>
+        <div class="perm-state denied">DENIED</div>
+      </div>
+      <div class="perm-block">
+        <div class="perm-name">WRITE_SECURE_SETTINGS</div>
+        <div class="perm-state denied">DENIED</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<section>
+  <div class="section-pad">
+    <h2><span class="section-num">02</span>The Workaround</h2>
+    <div class="ps-grid">
+      <div class="ps-cell problem">
+        <div class="ps-label">PROBLEM</div>
+        <h3>Can&rsquo;t toggle network mode from your own app.</h3>
+        <p>
+          ColorOS blocks every standard route to grant WRITE_SECURE_SETTINGS.
+          No <code>pm grant</code>, no <code>appops set</code>, no
+          <code>settings put</code>. Your app has no way to flip the SIM
+          network mode programmatically.
+        </p>
+      </div>
+      <div class="ps-cell solution">
+        <div class="ps-label">SOLUTION</div>
+        <h3>Deep-link, don&rsquo;t ask.</h3>
+        <p>
+          A <code>CLEAR_TASK</code> deep-link to{' '}
+          <code>Settings$MobileNetworkActivity</code>. The user adds the QS tile
+          (or home-screen widget) and taps it — the Settings app opens
+          directly on the SIM network mode toggle. Two taps, zero permissions.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<section>
+  <div class="section-pad">
+    <h2><span class="section-num">03</span>How to use it</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num red">01</div>
+        <h4>Install Shizuku</h4>
+        <p>
+          NetSwitch uses Shizuku to elevate the deep-link into an actual
+          toggle. Install from Play Store, activate via ADB or root.
+        </p>
+      </div>
+      <div class="step">
+        <div class="step-num red">02</div>
+        <h4>Install NetSwitch</h4>
+        <p>
+          Download the APK from GitHub Releases. Sideload — no Play Store
+          listing. Verify SHA-256 against the release page.
+        </p>
+      </div>
+      <div class="step">
+        <div class="step-num green">03</div>
+        <h4>Add the QS tile</h4>
+        <p>
+          Pull down Quick Settings, edit, drag the NetSwitch tile to your
+          active tiles. Or place the home-screen widget.
+        </p>
+      </div>
+      <div class="step">
+        <div class="step-num green">04</div>
+        <h4>Tap to toggle</h4>
+        <p>
+          Tap once — Settings opens directly on the SIM network mode toggle.
+          Two taps to switch. No permissions required by the app.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<section>
+  <div class="section-pad">
+    <h2><span class="section-num">04</span>Stack</h2>
+    <div class="stack">
+      <span class="stack-pill">Kotlin</span>
+      <span class="stack-pill">TileService</span>
+      <span class="stack-pill">AppWidgetProvider</span>
+      <span class="stack-pill">Shizuku API</span>
+      <span class="stack-pill">Gradle</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <a href="https://sriaravindan.com" class="credit">
+      Built by Sri Aravindan
+      <span class="credit-arrow">→</span>
+    </a>
+    <p class="copy">
+      Source under repo license · APK free to sideload · Requires Shizuku
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
